@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+    <body>
+
+    <script src="InternalBallistics.js"></script>
+
+    <h1>Internal ballistics</h1>
+
+       <button type="button" onclick="document.getElementById('status').innerHTML = RunBallistics();">Click to run.</button>
+       <button type="button" onclick="document.getElementById('status').innerHTML = StopGenetic();">Click to stop.</button>
+
+     <p id="status">Ready</p>
+
+    <table border="1">
+        <tr><td>
+               <textarea id="outputTextArea" rows="30" cols="60">Output will show here.</textarea>
+        </td><td>
+            <canvas id="drawArea" width="750" height="500">Drawing area</canvas>   
+        </td></tr>
+    </table>
+    </body>
+</html>
+
