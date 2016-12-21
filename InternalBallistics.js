@@ -1,9 +1,13 @@
 
+// case capacity source:  http://kwk.us/cases.html
+// 253 grains of water per cubic inch 
+
 // various global state flags
 var bestSet;
 var keepRunning;
 var generations;
 var targetError;
+var loadIndex;
 
 // target values for a given simulation iteration
 var targetPSI;
@@ -22,13 +26,12 @@ var grainsToSlugs = 1 / 7000 / 32.2;
 
 // IMR 3031 55gr 24"
 // 20.0gr 2878fps 46.8kpsi
-// 21.3gr 3024fps 52.2kpsi
 var charge = 20.0;
 var bulletMass = 55 * grainsToSlugs;
 var bore = 0.223;
 var boreArea = Math.pow(bore / 2, 2) * 3.14;
 var barrelLen = 24;
-var chamberVolume = boreArea * 1.5 * 2;    // initial volume of case, 1.5" long times double bore area
+var chamberVolume = 0.112;    // initial volume of case, 1.5" long times double bore area
 var dragStatic = 250;    // resistance to movements in pounds
 var dragKinetic = 100;
 
@@ -36,10 +39,37 @@ var dragKinetic = 100;
 var xscale; // fps max
 var yscale;  // kpsi max
 
-var loads = [];
-
 function Init()
 {
+    var outputDoc = document.getElementById("outputTextArea");
+    outputDoc.innerHTML += "In Init function.\n";
+
+	loadIndex = 0;
+
+    // array of 100 sest of 3 parameters, plus the error
+    parameterSet = [];
+    for(var i = 0; i < 100; ++i)
+    {
+        parameterSet[i] = [];
+    }
+
+    bestSet = [];
+    bestSet[0] = 0;
+    bestSet[1] = 0;
+    bestSet[2] = 0;
+    bestSet[3] = 0;
+    bestSet[parmCount] = -1;  // negative error means it hasn't been set yet
+
+    for(var set = 0; set < 100; ++set)
+    {
+        parameterSet[set][0] = pMin[0] + Math.random() * pRange[0];
+        parameterSet[set][1] = pMin[1] + Math.random() * pRange[1];
+        parameterSet[set][2] = pMin[2] + Math.random() * pRange[2];
+        parameterSet[set][3] = pMin[3] + Math.random() * pRange[3];
+
+        parameterSet[set][parmCount] = -1;
+    }
+
 	// minimum and range of each parameter in powder definition
 	pRange[0] = 1;  // curve shape parameter, 0-1
 	pMin[0] = 0;
@@ -52,54 +82,6 @@ function Init()
 
 	xscale = 750 / 5000; // fps max
 	yscale = 500 / 100;  // kpsi max
-
-	// each load is charge, bullet grains, bore diameter, barrel length, 
-	//  chamber volume, static drag, and kinetic drag, velocity, pressure
-	var i = 0;
-	loads[i++] = [23.3, 36, 0.223, 15, 0.116, 250, 100, 2839, 41.6];
-	loads[i++] = [24.8, 36, 0.223, 15, 0.116, 250, 100, 3068, 48.2];
-	loads[i++] = [22.7, 45, 0.223, 15, 0.116, 250, 100, 2506, 37.7];
-	loads[i++] = [25.2, 45, 0.223, 15, 0.116, 250, 100, 2980, 45.8];
-	loads[i++] = [23.5, 50, 0.223, 15, 0.116, 250, 100, 2506, 37.7];
-	loads[i++] = [25.8, 50, 0.223, 15, 0.116, 250, 100, 2980, 45.8];
-	loads[i++] = [22, 53, 0.223, 15, 0.116, 250, 100, 2401, 40.7];
-	loads[i++] = [24.5, 53, 0.223, 15, 0.116, 250, 100, 2869, 53.3];
-	loads[i++] = [21.6, 55, 0.223, 15, 0.116, 250, 100, 2300, 41.1];
-	loads[i++] = [24.6, 55, 0.223, 15, 0.116, 250, 100, 2874, 52.2];
-	loads[i++] = [21, 60, 0.223, 15, 0.116, 250, 100, 2281, 42.5];
-	loads[i++] = [22.5, 60, 0.223, 15, 0.116, 250, 100, 2514, 51.7];
-	loads[i++] = [21, 63, 0.223, 15, 0.116, 250, 100, 2247, 42.9];
-	loads[i++] = [23.3, 63, 0.223, 15, 0.116, 250, 100, 2674, 53];
-	loads[i++] = [21, 69, 0.223, 15, 0.116, 250, 100, 2277, 42.9];
-	loads[i++] = [22.5, 69, 0.223, 15, 0.116, 250, 100, 2476, 52.8];
-	loads[i++] = [19, 70, 0.223, 15, 0.116, 250, 100, 2029, 47.2];
-	loads[i++] = [21.2, 70, 0.223, 15, 0.116, 250, 100, 2270, 50.9];
-	loads[i++] = [23.4, 35, 0.223, 24, 0.116, 250, 100, 3423, 40];
-	loads[i++] = [26, 35, 0.223, 24, 0.116, 250, 100, 3771, 51.6];
-	loads[i++] = [23.3, 36, 0.223, 24, 0.116, 250, 100, 3398, 41.6];
-	loads[i++] = [24.8, 36, 0.223, 24, 0.116, 250, 100, 3600, 48.2];
-	loads[i++] = [23.5, 40, 0.223, 24, 0.116, 250, 100, 3291, 42.6];
-	loads[i++] = [25.2, 40, 0.223, 24, 0.116, 250, 100, 3498, 46.2];
-	loads[i++] = [21, 45, 0.223, 24, 0.116, 250, 100, 2981, 37];
-	loads[i++] = [24, 45, 0.223, 24, 0.116, 250, 100, 3400, 52.3];
-	loads[i++] = [22.7, 45, 0.223, 24, 0.116, 250, 100, 3065, 37.7];
-	loads[i++] = [25.2, 45, 0.223, 24, 0.116, 250, 100, 3374, 45.8];
-	loads[i++] = [23.5, 50, 0.223, 24, 0.116, 250, 100, 3169, 44.6];
-	loads[i++] = [25, 50, 0.223, 24, 0.116, 250, 100, 3268, 46.9];
-	loads[i++] = [22, 53, 0.223, 24, 0.116, 250, 100, 2959, 40.7];
-	loads[i++] = [24.5, 53, 0.223, 24, 0.116, 250, 100, 3260, 53.3];
-	loads[i++] = [21.6, 55, 0.223, 24, 0.116, 250, 100, 2907, 41.1];
-	loads[i++] = [24.6, 55, 0.223, 24, 0.116, 250, 100, 3233, 52.5];
-	loads[i++] = [20, 55, 0.223, 24, 0.116, 250, 100, 2878, 46.8];
-	loads[i++] = [21.3, 55, 0.223, 24, 0.116, 250, 100, 3024, 52.2];
-	loads[i++] = [21, 60, 0.223, 24, 0.116, 250, 100, 2815, 42.5];
-	loads[i++] = [22.5, 60, 0.223, 24, 0.116, 250, 100, 3008, 51.7];
-	loads[i++] = [20.3, 62, 0.223, 24, 0.116, 250, 100, 2700, 43.5];
-	loads[i++] = [22, 62, 0.223, 24, 0.116, 250, 100, 2940, 53.1];
-	loads[i++] = [21, 63, 0.223, 24, 0.116, 250, 100, 2737, 42.9];
-	loads[i++] = [23.3, 63, 0.223, 24, 0.116, 250, 100, 3018, 53];
-	loads[i++] = [21, 69, 0.223, 24, 0.116, 250, 100, 2707, 42.9];
-	loads[i++] = [22.5, 69, 0.223, 24, 0.116, 250, 100, 42.9, 52.8];
 }
 
 // called when error is less than target, or user clicks stop
@@ -123,14 +105,47 @@ function StopGenetic()
 function Iterate()
 {
     var outputDoc = document.getElementById("outputTextArea");
-    timeStep = 100; // ms
+    timeStep = 10; // ms
+
+    var hitTarget = 0;
+    targetError = 1;
+	currentError = 100;
+
     if(keepRunning)
     {
+		// set up load data
+		charge = loads[loadIndex][0];
+		bulletMass = loads[loadIndex][1] * grainsToSlugs;
+		bore = loads[loadIndex][2];
+		boreArea = Math.pow(bore / 2, 2) * Math.pi;
+		barrelLen = loads[loadIndex][3];
+		chamberVolume = loads[loadIndex][4];
+		dragStatic = loads[loadIndex][5];
+		dragKinetic = loads[loadIndex][6];
+	    targetFPS = loads[loadIndex][7];
+    	targetPSI = loads[loadIndex][8];
+
+		loadIndex += 1;
+
+		// wrap around when we hit the end of the list
+		if(loadIndex >= loads.length) loadIndex = 0;
+
         Draw();
         // if we have a best set, and it's really close, terminate
-        if(bestSet[parmCount] > 0 && bestSet[parmCount] < targetError)
+        if(bestSet[parmCount] > 0 && bestSet[parmCount] < currentError)
         {
-            StopGenetic();
+			// work acceptable error down to target slowly, so we
+			//  don't over-optimize on one solution at first
+			if(currentError < targetError) --currentError;
+
+			// if we do hit the target, increment a counter and keep
+			//  going until we hit it repeatedly
+			if(bestSet[parmCount] < targetError)
+				++hitTarget;
+
+			if(hitTarget > 25)
+	            StopGenetic();
+
             return;
         }
         Evolve();
@@ -252,7 +267,9 @@ function Evolve()
         }
     }
 
-    outputDoc.innerHTML = "Best error: " + bestSet[parmCount] + "\n";
+	outputDoc.innerHTML = "Target " + targetPSI + "kpsi and " + targetFPS + "fps\n";
+
+    outputDoc.innerHTML += "Best error: " + bestSet[parmCount] + "\n";
     outputDoc.innerHTML += "Generation " + generations + " survivors:\n";
     // generate 90 new individuals by mixing and mutating top 10
     outputDoc.innerHTML += "Error: " + parameterSet[0][parmCount] + "\n";
@@ -387,9 +404,9 @@ function RunSimulation(i, results)
     var outputCanvas = document.getElementById("drawArea");
     var gc = outputCanvas.getContext("2d");
     var outputDoc = document.getElementById("outputTextArea");
+	var status = document.getElementById("status");
 
     gc.strokeStyle = "gray";
-
    
     var percent = 0;    // amount of powder burned
     var velocity = 0;    // inches per second
@@ -401,9 +418,12 @@ function RunSimulation(i, results)
 
     var dt = 0.00001;
 
+   	status.innerHTML = "Beginning simulation";
+
     gc.moveTo(0, 500);
     for(var t = 0; t < 0.1; t += dt)
     {
+   		status.innerHTML = "t = " + t;
         // calculate powder burned
         percent = BurnPowder(percent, pressure, dt,
                         parameterSet[i][0],
@@ -423,8 +443,11 @@ function RunSimulation(i, results)
         // bail early if we exceeded 120% of target pressure
         if(pressure > 1.2 * targetPSI)
         {
-            velocity = 999999;
-            break;
+    		results.psi = pressure;    // kpsi
+		    results.fps = velocity / 12;         // inches per second to feet per second
+
+        	status.innerHTML = "Failure: " + result.psi + "kpsi " + result.fps + "fps";
+            return;
         }
 
         // calculate force in pounds on the bullet, remember pressure is kpsi
@@ -442,7 +465,14 @@ function RunSimulation(i, results)
         volume = position * boreArea + chamberVolume; // increase swept volume
 
         // bail if we hit the end of the barrel
-        if(position > barrelLen) break;
+        if(position > barrelLen) 
+		{
+    		results.psi = pressure;    // kpsi
+		    results.fps = velocity / 12;         // inches per second to feet per second
+
+        	status.innerHTML = "Success: " + result.psi + "kpsi " + result.fps + "fps";
+            return;
+		}
 
         // plot the pressure/velocity curve of the best individual
         if(i == 0)
@@ -456,6 +486,9 @@ function RunSimulation(i, results)
 
     results.psi = maxPressure;    // kpsi
     results.fps = velocity / 12;         // inches per second to feet per second
+
+   	status.innerHTML = "Failure: " + result.psi + "kpsi " + result.fps + "fps";
+	return;
 }
 
 function RunBallistics()
@@ -465,38 +498,8 @@ function RunBallistics()
 
     Init();
 
-    targetError = 1;
     generations = 0;
     keepRunning = true;
-
-    outputDoc.innerHTML += "In run function.\n";
-
-    // array of 100 sest of 3 parameters, plus the error
-    parameterSet = [];
-    for(var i = 0; i < 100; ++i)
-    {
-        parameterSet[i] = [];
-    }
-
-    targetPSI = 46.8;
-    targetFPS = 2878;
-
-    bestSet = [];
-    bestSet[0] = 0;
-    bestSet[1] = 0;
-    bestSet[2] = 0;
-    bestSet[3] = 0;
-    bestSet[parmCount] = -1;  // negative error means it hasn't been set yet
-
-    for(var set = 0; set < 100; ++set)
-    {
-        parameterSet[set][0] = pMin[0] + Math.random() * pRange[0];
-        parameterSet[set][1] = pMin[1] + Math.random() * pRange[1];
-        parameterSet[set][2] = pMin[2] + Math.random() * pRange[2];
-        parameterSet[set][3] = pMin[3] + Math.random() * pRange[3];
-
-        parameterSet[set][parmCount] = -1;
-    }
 
     Iterate();
 }
@@ -545,8 +548,6 @@ function Draw()
 
         // squared error works, since all we care about is who's closer
         parameterSet[i][parmCount] = Math.pow(targetPSI - result.psi, 2) + Math.pow(targetFPS - result.fps, 2);
-
-        //outputDoc.innerHTML += result.psi + "kpsi " + result.fps + "fps\n";
 
         var x = result.fps * xscale;
         var y = 500 - result.psi * yscale;
