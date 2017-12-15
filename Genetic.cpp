@@ -143,7 +143,7 @@ void BurnCurve(double x, double y, double z, vector<double> &array)
 /* various constants
  * density of nitrocellulose, 1.23 g/ml  http://www.chemicalbook.com/ChemicalProductProperty_EN_CB6781086.htm
  * Isenotropic expansion of a gas, from https://ccrma.stanford.edu/~jos/pasp/Adiabatic_Gas_Constant.html
- * pressure = (volume 1 / volume 2) ^ Y, where Y is 1.6 for monatomic (noble gases), 1.4 for diatomic (N2), 
+ * pressure = pressure * (volume 1 / volume 2) ^ Y, where Y is 1.6 for monatomic (noble gases), 1.4 for diatomic (N2), 
  * and 1.28 for triatomic (CO2).  A value of about 1.35 would probably work for nitrocellulose combustion gases.
 */
 
