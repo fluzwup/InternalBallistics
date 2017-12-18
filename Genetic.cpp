@@ -57,6 +57,22 @@ public:
 	// mix genes of this generation's top perfomers with genes of overall top performers
 };
 
+class ObservedResults
+{
+public:
+	// parameters:
+	// 0: grains of powder
+	// 1: bullet mass in grains
+	// 2: bore diameter in inches
+	// 3: barrel length in inches
+	// 4: chamber volume in cubic inches
+	// 5: static drag in pounds force
+	// 6: kinetic drag in pounds force
+	// 7: muzzle velocity
+	// 8: peak pressure in kpsi
+	vector<double> values;
+};
+
 // Cubic Bezier curve, generating a curve from (0, 0) to (1, 1)
 // (a, b) is the lower control point, (b, c) is the upper control point
 // t is the parameter, and should range from [0 - 1].
@@ -102,7 +118,7 @@ void BurnCurve(double x, double y, double z, vector<double> &array)
 	}
 
 	// since this is a parametric curve, sweep the parameter and get the X and Y values
-	for(t = 0; t < 1; t += .01)
+	for(t = 0; t <= 1; t += .01)
 	{
 		double dx, dy;
 
@@ -153,6 +169,8 @@ void RunSimulation(vector<double> &parameters, vector<double> &outputs)
 	// generate the burn curve for this run
 	vector<double> curve;
 	BurnCurve(parameters[0], parameters[1], parameters[2], curve);
+
+
 	
 }
 
