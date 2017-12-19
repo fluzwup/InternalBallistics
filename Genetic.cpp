@@ -163,15 +163,86 @@ void BurnCurve(double x, double y, double z, vector<double> &array)
  * and 1.28 for triatomic (CO2).  A value of about 1.35 would probably work for nitrocellulose combustion gases.
 */
 
-// takes the input parameters, runs the simulation, returns the outputs
-void RunSimulation(vector<double> &parameters, vector<double> &outputs)
+
+// update the amount burned (in the range of 0 to 1) and return the new amount
+double PowderBurned(vector<double> &curve, double pressure, double correction, double dt, double burned)
 {
-	// generate the burn curve for this run
+	// if we've hit the end, then return 100%
+	if(burned >= 1.0) return 1.0;
+	
+	// curve is at 10kpsi, so adjust accordingly and burn the new amount
+	burned += correction * pressure / 10000.0;
+	if(burned >= 1.0) burned = 1.0;
+
+	return burned;
+}
+
+// takes the input parameters, runs the simulation, returns the outputs
+double RunSimulation(vector<double> &parameters, vector<double> &observed)
+{
+	// generate the burn curve for this run from the genes
 	vector<double> curve;
 	BurnCurve(parameters[0], parameters[1], parameters[2], curve);
 
+	// fill out siumlation starting parameters
+	double powder = observed[0];
+	double bmass = observed[1] / 7000 / 32.2;	// convert to slugs
+	double barea = observed[2] / 2.0; 			// convert to radius
+	barea *= barea * 3.1415;					// and then to area
+	double blen = observed[3] / 12.0;			// convert to feet
+	double cvol = observed[4];
+	double sdrag = observed[5];
+	double kdrag = observed[6];
 
-	
+	// seconds, elapsed time and time step
+	double t = 0;
+	double dt = 0.0001;
+	double pressure = 500;	// psi, primer pressure
+	double travel = 0;		// feet, travel of bullet
+	double vel = 0;		// feet per second velocity
+	double peak = pressure;	// set peak pressure to current pressure
+	double prgas = pressure * cvol;	// primer gas volume
+	double pwgas = 0;	// powder gas volume
+	double pburned = 0; // fraction of powder burned
+	double accel = 0;
+	double swvol = cvol;	// swept volume, start with chamber volume
+
+	while(travel < blen)
+	{
+		// calculate bullet travel and new volume
+		double force = pressure * barea;		// force pressing on base of bullet in pounds
+		force -= (vel > 0 ? kdrag : sdrag);		// minus drag
+		if(force > 0)
+			accel = force / bmass;	
+		else
+			accel = 0;
+
+		vel += accel * dt;
+		travel += vel * dt;
+		swvol = cvol + travel * barea;
+
+		// calculate powder burn and gas volume
+		pburned = PowderBurned(curve, pressure, parameters[3], dt, pburned);
+		double gvol = pburned * parameters[5];
+
+		// calculate new pressure and check for peak and end of barrel
+		// this will need to be adjusted for the isenotropic expansion factor of the expansion
+		pressure = gvol / swvol;	// gas volume at 1 psi divided by volume behind bullet equals pressure
+
+		if(pressure > peak) peak = pressure;
+	}
+
+	double mvel = observed[7];
+	double ppressure = observed[8];
+
+	// sum up the squared error percentages of the pressure and the velocity
+	double diff = mvel - vel;
+	double error = diff * diff / mvel;
+
+	diff = ppressure - pressure;
+	error += diff * diff / ppressure;
+
+	return error;
 }
 
 int main(int argc, char **argv)
@@ -241,5 +312,77 @@ int main(int argc, char **argv)
 0.906250 0.985986 ***************************************************************************************************
 0.937500 0.995328 ****************************************************************************************************
 0.968750 0.998816 ****************************************************************************************************
+ 
+// each load is charge, bullet grains, bore diameter, barrel length, 
+//  chamber volume, static drag, and kinetic drag, velocity, pressure
+// .223 Remington data for IMR 3031 powder
+class cartridge
+{
+public:
+	string name;
+	double length;	// to base of bullet
+	double volume;	// cubic inches, when loaded
+	double bore;	// inches diameter
+};
 
+class load
+{
+public:
+	cartridge c;
+	string powder;
+	double bweight;
+	double charge;
+	double staticfriction;
+	double kinenticfriction;
+	double velocity;
+	double pressure;
+	double barrellength;
+};
+
+23.3, 36, 0.223, 15, 0.116, 250, 100, 2839, 41.6
+24.8, 36, 0.223, 15, 0.116, 250, 100, 3068, 48.2
+22.7, 45, 0.223, 15, 0.116, 250, 100, 2506, 37.7
+25.2, 45, 0.223, 15, 0.116, 250, 100, 2980, 45.8
+23.5, 50, 0.223, 15, 0.116, 250, 100, 2506, 37.7
+25.8, 50, 0.223, 15, 0.116, 250, 100, 2980, 45.8
+22, 53, 0.223, 15, 0.116, 250, 100, 2401, 40.7
+24.5, 53, 0.223, 15, 0.116, 250, 100, 2869, 53.3
+21.6, 55, 0.223, 15, 0.116, 250, 100, 2300, 41.1
+24.6, 55, 0.223, 15, 0.116, 250, 100, 2874, 52.2
+21, 60, 0.223, 15, 0.116, 250, 100, 2281, 42.5
+22.5, 60, 0.223, 15, 0.116, 250, 100, 2514, 51.7
+21, 63, 0.223, 15, 0.116, 250, 100, 2247, 42.9
+23.3, 63, 0.223, 15, 0.116, 250, 100, 2674, 53
+21, 69, 0.223, 15, 0.116, 250, 100, 2277, 42.9
+22.5, 69, 0.223, 15, 0.116, 250, 100, 2476, 52.8
+19, 70, 0.223, 15, 0.116, 250, 100, 2029, 47.2
+21.2, 70, 0.223, 15, 0.116, 250, 100, 2270, 50.9
+23.4, 35, 0.223, 24, 0.116, 250, 100, 3423, 40
+26, 35, 0.223, 24, 0.116, 250, 100, 3771, 51.6
+23.3, 36, 0.223, 24, 0.116, 250, 100, 3398, 41.6
+24.8, 36, 0.223, 24, 0.116, 250, 100, 3600, 48.2
+23.5, 40, 0.223, 24, 0.116, 250, 100, 3291, 42.6
+25.2, 40, 0.223, 24, 0.116, 250, 100, 3498, 46.2
+21, 45, 0.223, 24, 0.116, 250, 100, 2981, 37
+24, 45, 0.223, 24, 0.116, 250, 100, 3400, 52.3
+22.7, 45, 0.223, 24, 0.116, 250, 100, 3065, 37.7
+25.2, 45, 0.223, 24, 0.116, 250, 100, 3374, 45.8
+23.5, 50, 0.223, 24, 0.116, 250, 100, 3169, 44.6
+25, 50, 0.223, 24, 0.116, 250, 100, 3268, 46.9
+22, 53, 0.223, 24, 0.116, 250, 100, 2959, 40.7
+24.5, 53, 0.223, 24, 0.116, 250, 100, 3260, 53.3
+21.6, 55, 0.223, 24, 0.116, 250, 100, 2907, 41.1
+24.6, 55, 0.223, 24, 0.116, 250, 100, 3233, 52.5
+20, 55, 0.223, 24, 0.116, 250, 100, 2878, 46.8
+21.3, 55, 0.223, 24, 0.116, 250, 100, 3024, 52.2
+21, 60, 0.223, 24, 0.116, 250, 100, 2815, 42.5
+22.5, 60, 0.223, 24, 0.116, 250, 100, 3008, 51.7
+20.3, 62, 0.223, 24, 0.116, 250, 100, 2700, 43.5
+22, 62, 0.223, 24, 0.116, 250, 100, 2940, 53.1
+21, 63, 0.223, 24, 0.116, 250, 100, 2737, 42.9
+23.3, 63, 0.223, 24, 0.116, 250, 100, 3018, 53
+21, 69, 0.223, 24, 0.116, 250, 100, 2707, 42.9
+
+ 
+ 
 */
